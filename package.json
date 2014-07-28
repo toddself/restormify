@@ -1,0 +1,36 @@
+{
+  "name": "restormify",
+  "version": "0.0.0",
+  "description": "An automatic API generator for node-orm2 and restify",
+  "main": "index.js",
+  "scripts": {
+    "test": "tap test/*spec.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/toddself/restormify"
+  },
+  "keywords": [
+    "rest",
+    "orm",
+    "orm2",
+    "node-orm",
+    "node-orm2",
+    "restify",
+    "http",
+    "rest",
+    "server",
+    "server",
+    "persistance",
+    "orm"
+  ],
+  "author": "Todd Kennedy <todd@selfassembled.org>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/toddself/restormify/issues"
+  },
+  "homepage": "https://github.com/toddself/restormify",
+  "devDependencies": {
+    "tap": "^0.4.12"
+  }
+}
