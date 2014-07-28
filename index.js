@@ -1,9 +1,19 @@
 'use strict';
 
 var restify = require('restify');
+var xtend = require('xtend');
 var format = require('util').format;
-var db;
-var apiBase;
+var opts;
+var _actuallyDelete = false;
+var _apiBaseString = 'api';
+
+var defaults = {
+  apiBase: createURLRegex(_apiBaseString),
+  deletedColumn: 'deleted',
+  allowAccess: function(){
+    return true;
+  }
+};
 
 /**
  * Enumerate through the response object to strip out all values that are marked
@@ -24,28 +34,40 @@ function filterObj(modelProps, obj){
   return returnObj;
 }
 
+/**
+ * Create a regular expression for routing requests to
+ * @method  createURLRegex
+ * @private
+ * @param   {string} base string to exist
+ * @returns {object} regular expression matching string
+ */
+function createURLRegex(base){
+  var matcher = format('^/%s.*', base)
+  return new RegExp(matcher);
+}
+
 var methods = {
   put: function(resourceName, resourceId, content, cb){
-    db.models[resourceName].get(resourceId, function(err, resource){
+    opts.db.models[resourceName].get(resourceId, function(err, resource){
       if(err || !resource){
         return cb(new restify.ResourceNotFoundError('Not found'));
       }
 
-      if(content.deleted){
-        return cb(new restify.InvalidContentError('PUT/PATCH may not delete content'));
+      if(!_actuallyDelete && opts.db.models[resourceName].properties.deleted && content.deleted){
+         return cb(new restify.InvalidContentError('PUT/PATCH may not delete content'));
       }
 
       resource.save(content, function(err, updatedResource){
         if(err){
           return cb(new restify.InternalError(err.message));
         }
-        var filteredResource = filterObj(db.models[resourceName].properties, updatedResource);
+        var filteredResource = filterObj(opts.db.models[resourceName].properties, updatedResource);
         cb(200, filteredResource);
       });
     });
   },
   post: function(resourceName, resouceId, content, cb){
-    db.models[resourceName].find(content, function(err, resource){
+    opts.db.models[resourceName].find(content, function(err, resource){
       if(err){
         return cb(new restify.InternalError(err.message));
       }
@@ -54,7 +76,7 @@ var methods = {
         return cb(new restify.ConflictError(format('%s already exists', resourceName)));
       }
 
-      var resource = new db.models[resourceName](content);
+      var resource = new opts.db.models[resourceName](content);
       resource.save(function(err){
         if(err){
           if(typeof err.value === 'undefined'){
@@ -66,7 +88,7 @@ var methods = {
           }
           return cb(err);
         }
-        var filteredResource = filterObj(db.models[resourceName].properties, resource);
+        var filteredResource = filterObj(opts.db.models[resourceName].properties, resource);
         cb(201, filteredResource);
       });
     });
@@ -78,31 +100,44 @@ var methods = {
       query.id = resourceId;
     }
 
-    db.models[resourceName].find(query, function(err, resource){
+    opts.db.models[resourceName].find(query, function(err, resource){
       resource = Array.isArray(resource) ? resource : [resource];
       if(err){
         return cb(new restify.InternalError(err.message));
       }
 
       var filteredResource = resource.map(function(r){
-        return filterObj(db.models[resourceName].properties, r);
+        return filterObj(opts.db.models[resourceName].properties, r);
       });
       
       cb(200, resourceId ? filteredResource[0] : filteredResource);
     })
   },
+
   delete: function(resourceName, resourceId, content, cb){
-    db.models[resourceName].get(resourceId, function(err, resource){
+    opts.db.models[resourceName].get(resourceId, function(err, resource){
       if(err || !resource){
         return cb(new restify.ResourceNotFoundError('Not found'));
       }
-      resource.deleted = true;
-      resource.save(function(err){
-        if(err){
-          return cb(new restify.InternalError(err.message));
-        }
-        cb(200, 'OK');
-      });
+
+      if(_actuallyDelete){
+        resource.remove(function(err){
+          if(err){
+            return cb(new restify.InternalError(err.message));
+          }
+          cb(200, 'OK');
+        });
+      } else if(opts.db.models[resourceName].properties.deleted){
+        resource.deleted = true;
+        return resource.save(function(err){
+          if(err){
+            return cb(new restify.InternalError(err.message));
+          }
+          cb(200, 'OK');
+        });  
+      } else {
+        return cb(new restify.InvalidContentError('Cannot delete resource'));
+      }
     });
   }
 };
@@ -130,8 +165,13 @@ function routeHandler(req, res, next){
   }
 
   if(Object.keys(methods).indexOf(method) !== -1){
-    if(!db.models[resourceName]){
+    if(!opts.db.models[resourceName]){
       return res.send(new restify.MissingContentError(format('%s: not found', resourceName)));
+    }
+
+
+    if(!opts.allowAccess(req, method, resourceName, resourceId)){
+      return res.send(new restify.InvalidCredentialsError('Not authorized'));
     }
 
     methods[method].call(null, resourceName, resourceId, req.body, function(){
@@ -146,19 +186,33 @@ function routeHandler(req, res, next){
 /**
  * Create generic REST API 
  * @method  restormify
- * @param   {object} database node-orm database object
- * @param   {object} server restify server instance
+ * @param   {object} opts options for restormify or a db instance
+ * @param   {object} opts.db database instance
+ * @param   {object} opts.server server instance
+ * @param   {string} [opts.apiBase] base URL for API calls.
+ * @param   {string} [opts.deletedColumn] what column to use to mark an item deleted. `false` to disable
+ * @param   {function} [opts.allowAccess] a function given the resourceName, the reource ID, the method and the request obj. Return boolean if this request should be processed
+ * @param   {object} [server] restify server instance
  * @param   {string} [base=''] base URL for API calls
  * @returns {object} server
  */
-module.exports = function(database, server, base){
-  db = database;
-  apiBase = base || '';
+module.exports = function(options, server, apiBase){
+  if(server){
+    options = {
+      db: options,
+      server: server,
+      apiBase: createURLRegex(apiBase || _apiBaseString)
+    }
+  }
+  opts = xtend(defaults, options);
+
+  if(!opts.deletedColumn){
+    _actuallyDelete = true;
+  }
+
   var methods = ['get', 'put', 'post', 'patch', 'del'];
-
   for(var i = 0; i < methods.length; i++){
-
-    server[methods[i]](apiBase, routeHandler);
+    opts.server[methods[i]](opts.apiBase, routeHandler);
   }
 
   return server;
