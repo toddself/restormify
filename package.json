@@ -4,7 +4,7 @@
   "description": "An automatic API generator for node-orm2 and restify",
   "main": "index.js",
   "scripts": {
-    "test": "tap test/*spec.js"
+    "test": "mocha -R tap test/*spec.js"
   },
   "repository": {
     "type": "git",
@@ -30,7 +30,14 @@
     "url": "https://github.com/toddself/restormify/issues"
   },
   "homepage": "https://github.com/toddself/restormify",
+  "peerDependencies": {
+    "orm": "~2.x",
+    "restify": "~2.X"
+  },
   "devDependencies": {
-    "tap": "^0.4.12"
+    "mocha": "~1.21.3",
+    "orm": "~2.1.17",
+    "restify": "~2.8.1",
+    "sqlite3": "^2.2.4"
   }
 }
