@@ -11,8 +11,8 @@ module.exports = function(opts){
   return function(resourceName, resourceId, relationName, relationId, content, cb){
     var query = {};
 
-    if(opts._actuallyDelete){
-      query.deleted = false;
+    if(opts._actuallyDelete && opts.db.models[resourceName].properties.deleted){
+      query[opts.deletedColumn] = false;
     }
 
     if(resourceId){
@@ -31,15 +31,21 @@ module.exports = function(opts){
       
       // trying to get a list of relations
       if(resourceId && relationName){
-        return getRelation(resource, resourceName, resourceId, relationName, relationId, log, cb);
+        return getRelation(resource[0], resourceName, resourceId, relationName, relationId, log, cb);
       } 
+
+console.log(JSON.stringify(resource));
 
       resource = Array.isArray(resource) ? resource : [resource];
       var returnObject;
 
+
+
       var filteredResource = resource.map(function(r){
         return filterObj(opts.db.models[resourceName].properties, r);
       });
+
+
 
       if(resourceId){
         returnObject = filteredResource[0];

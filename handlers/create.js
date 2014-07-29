@@ -16,7 +16,7 @@ module.exports = function(opts){
       }
 
       if(relationName && resource.length === 1 && resource[0]){
-        return addRelation(resource, resourceName, relationName, content, opts, cb);
+        return addRelation(resource[0], resourceName, relationName, content, opts, cb);
       }
 
       if(resource.length > 0){
