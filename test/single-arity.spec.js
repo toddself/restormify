@@ -17,7 +17,7 @@ server.use(restify.bodyParser());
 server.use(restify.queryParser());
 
 describe('single arity', function(){
-  before(function(done){  
+  before(function(done){
     orm.connect(dbProps, function(err, database){
       if(err){
         done(err);
@@ -25,14 +25,14 @@ describe('single arity', function(){
       db = database;
 
       restormify({
-        db: db, 
+        db: db,
         server: server
       });
 
       baz = db.define('baz', {
-        name: String, 
+        name: String,
         email: String,
-        foo: {type: 'boolean', serverOnly: true}, 
+        foo: {type: 'boolean', serverOnly: true},
         deleted: {type: 'boolean', serverOnly: true}
       });
       done();
@@ -40,7 +40,7 @@ describe('single arity', function(){
 
     client = restify.createJsonClient({
       url: 'http://localhost:1234/api'
-    });  
+    });
   });
 
   describe('api', function(){
@@ -72,7 +72,28 @@ describe('single arity', function(){
       });
     });
 
-    it('returns a created user', function(done){  
+    it('returns a 404 for bad content', function(done){
+      client.get('/api/faaaa', function(err, req, res, obj){
+        assert.equal(res.statusCode, 404, 'missing content');
+        done();
+      });
+    });
+
+    it('returns a 404 for a bad id', function(done){
+      client.get('/api/baz/askjasd', function(err, req, res, obj){
+        assert.equal(res.statusCode, 404, 'missing content');
+        done();
+      });
+    });
+
+    it('returns 404 for a missing id', function(done){
+      client.get('/api/baz/123', function(err, req, res, obj){
+        assert.equal(res.statusCode, 404, 'missing content');
+        done();
+      });
+    });
+
+    it('returns a created user', function(done){
       var name = {name: 'foo bar'};
 
       baz.create(name, function(err, bazName){
@@ -166,5 +187,5 @@ describe('single arity', function(){
     fs.unlink('test-db', function(err){
       done();
     });
-  });  
+  });
 });

@@ -3,10 +3,13 @@
 var restify = require('restify');
 var xtend = require('xtend');
 var format = require('util').format;
+var isEmpty = require('lodash.isempty');
+
 var opts;
 var _actuallyDelete = false;
 var _apiBaseString = 'api';
 var logger;
+
 
 var defaults = {
   apiBase: createURLRegex(_apiBaseString),
@@ -68,6 +71,7 @@ var methods = {
       });
     });
   },
+
   post: function(resourceName, resouceId, content, cb){
     opts.db.models[resourceName].find(content, function(err, resource){
       if(err){
@@ -82,7 +86,7 @@ var methods = {
       resource.save(function(err){
         if(err){
           if(typeof err.value === 'undefined'){
-            err = new restify.MissingContentError(format('%s is required', err.property));
+            err = new restify.ResourceNotFoundError(format('%s is required', err.property));
           } else if (err.property) {
             err = new restify.InvalidContentError(err.msg);
           } else {
@@ -95,6 +99,7 @@ var methods = {
       });
     });
   },
+
   get: function(resourceName, resourceId, content, cb){
     var query = {};
 
@@ -103,11 +108,15 @@ var methods = {
     }
 
     if(resourceId){
-      query.id = resourceId;
+      query.id = parseInt(resourceId, 10);
+      if(isNaN(query.id)){
+        return cb(new restify.ResourceNotFoundError('Not found'));
+      }
     }
 
     opts.db.models[resourceName].find(query, function(err, resource){
       resource = Array.isArray(resource) ? resource : [resource];
+      var returnObject;
       if(err){
         return cb(new restify.InternalError(err.message));
       }
@@ -116,7 +125,16 @@ var methods = {
         return filterObj(opts.db.models[resourceName].properties, r);
       });
 
-      cb(200, resourceId ? filteredResource[0] : filteredResource);
+      if(resourceId){
+        returnObject = filteredResource[0];
+        if(isEmpty(returnObject)){
+          return cb(new restify.ResourceNotFoundError('Not found'));
+        }
+      } else {
+        returnObject = filteredResource;
+      }
+
+      cb(200, returnObject);
     })
   },
 
@@ -171,8 +189,8 @@ function routeHandler(req, res, next){
 
   if(Object.keys(methods).indexOf(method) !== -1){
     if(!opts.db.models[resourceName]){
-      opts.logger.info('%s is not a model on this db instance', Object.keys(db.models));
-      return res.send(new restify.MissingContentError(format('%s: not found', resourceName)));
+      opts.logger.info('%s is not a model on this db instance', Object.keys(opts.db.models));
+      return res.send(new restify.ResourceNotFoundError(format('%s: not found', resourceName)));
     }
 
     if(!opts.allowAccess(req, method, resourceName, resourceId)){
