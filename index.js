@@ -47,7 +47,7 @@ function routeHandler(req, res){
 
   if(Object.keys(methods).indexOf(method) !== -1){
     if(!opts.db.models[resourceName]){
-      opts.logger.info('%s is not a model on this db instance', Object.keys(opts.db.models));
+      opts.logger.info('%s is not a model on this db instance', resourceName, Object.keys(opts.db.models));
       return res.send(new restify.ResourceNotFoundError(format('%s: not found', resourceName)));
     }
 
