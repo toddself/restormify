@@ -40,6 +40,8 @@ function routeHandler(req, res){
   var apiCall = url.split('/').slice(1);
   var resourceName = apiCall[1];
   var resourceId = apiCall[2];
+  var relationName = apiCall[3];
+  var relationId = apiCall[4];
 
   if(method === 'patch' && !methods[method]){
     method = 'put';
@@ -56,7 +58,7 @@ function routeHandler(req, res){
       return res.send(new restify.InvalidCredentialsError('Not authorized'));
     }
 
-    methods[method].call(null, resourceName, resourceId, req.body, function(){
+    methods[method].call(null, resourceName, resourceId, relationName, relationId, req.body, function(){
       opts.logger.info('%s for %s/%s', method, resourceName, resourceId);
       return res.send.apply(res, Array.prototype.slice.call(arguments));
     });

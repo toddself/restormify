@@ -1,12 +1,14 @@
 'use strict';
 
 var restify = require('restify');
-var filterObj = require('../lib/filter-object');
 var isEmpty = require('lodash.isempty');
+
+var getRelation = require('./get-relation');
+var filterObj = require('../lib/filter-object');
 
 module.exports = function(opts){
   var log = opts.logger.child({method: 'get'});
-  return function(resourceName, resourceId, content, cb){
+  return function(resourceName, resourceId, relationName, relationId, content, cb){
     var query = {};
 
     if(opts._actuallyDelete){
@@ -22,12 +24,18 @@ module.exports = function(opts){
     }
 
     opts.db.models[resourceName].find(query, function(err, resource){
-      resource = Array.isArray(resource) ? resource : [resource];
-      var returnObject;
       if(err){
         log.error('Cannot get %s/%s', resourceName, resourceId, err);
         return cb(new restify.InternalError());
       }
+      
+      // trying to get a list of relations
+      if(resourceId && relationName){
+        return getRelation(resource, resourceName, resourceId, relationName, relationId, log, cb);
+      } 
+
+      resource = Array.isArray(resource) ? resource : [resource];
+      var returnObject;
 
       var filteredResource = resource.map(function(r){
         return filterObj(opts.db.models[resourceName].properties, r);
@@ -42,6 +50,7 @@ module.exports = function(opts){
       } else {
         returnObject = filteredResource;
       }
+      
       log.info('got %s/%s', resourceName, resourceId);
       cb(200, returnObject);
     });

@@ -1,11 +1,12 @@
 'use strict';
 
 var restify = require('restify');
+var removeRelation = require('./remove-relation');
 
 module.exports = function(opts){
   var log = opts.logger.child({method: 'delete'});
 
-  return function(resourceName, resourceId, content, cb){
+  return function(resourceName, resourceId, relationName, relationId, content, cb){
     opts.db.models[resourceName].get(resourceId, function(err, resource){
       if(err){
         log.error('Error on delete', err);
@@ -15,6 +16,11 @@ module.exports = function(opts){
       if(!resource){
         log.info('%s/%s not found', resourceName, resourceId);
         return cb(new restify.ResourceNotFoundError());
+      }
+
+
+      if(resourceId && relationName){
+        return removeRelation(resource, resourceName, resourceId, relationName, relationId, opts, cb);
       }
 
       if(opts._actuallyDelete){

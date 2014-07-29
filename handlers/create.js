@@ -4,13 +4,19 @@ var restify = require('restify');
 var filterObj = require('../lib/filter-object');
 var format = require('util').format;
 
+var addRelation = require('./add-relation');
+
 module.exports = function(opts){
   var log = opts.logger.child({method: 'post'});
-  return function(resourceName, resouceId, content, cb){
+  return function(resourceName, resourceId, relationName, relationId, content, cb){
     opts.db.models[resourceName].find(content, function(err, resource){
       if(err){
         log.error('Unable to query %s with %j', resourceName, content, err);
         return cb(new restify.InternalError());
+      }
+
+      if(relationName && resource.length === 1 && resource[0]){
+        return addRelation(resource, resourceName, relationName, content, opts, cb);
       }
 
       if(resource.length > 0){

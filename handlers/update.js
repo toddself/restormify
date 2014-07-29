@@ -5,7 +5,12 @@ var filterObj = require('../lib/filter-object');
 
 module.exports = function(opts){
   var log = opts.logger.child({method: 'update'});
-  return function(resourceName, resourceId, content, cb){
+  return function(resourceName, resourceId, relationName, relationId, content, cb){
+    if(relationName){
+      log.info('Client attempted to update a relation rather than original object', resourceName, relationName);
+      return cb(new restify.InvalidContentError('You can only update original objects'));
+    }
+
     opts.db.models[resourceName].get(resourceId, function(err, resource){
       if(err){
         log.error('Could not get %s/%s', resourceName, resourceId, err);
