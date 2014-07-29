@@ -6,13 +6,15 @@ var format = require('util').format;
 var opts;
 var _actuallyDelete = false;
 var _apiBaseString = 'api';
+var logger;
 
 var defaults = {
   apiBase: createURLRegex(_apiBaseString),
   deletedColumn: 'deleted',
   allowAccess: function(){
     return true;
-  }
+  },
+  logger: 'default'
 };
 
 /**
@@ -94,7 +96,11 @@ var methods = {
     });
   },
   get: function(resourceName, resourceId, content, cb){
-    var query = {deleted: false};
+    var query = {};
+
+    if(_actuallyDelete){
+      query.deleted = false;
+    }
 
     if(resourceId){
       query.id = resourceId;
@@ -109,7 +115,7 @@ var methods = {
       var filteredResource = resource.map(function(r){
         return filterObj(opts.db.models[resourceName].properties, r);
       });
-      
+
       cb(200, resourceId ? filteredResource[0] : filteredResource);
     })
   },
@@ -134,7 +140,7 @@ var methods = {
             return cb(new restify.InternalError(err.message));
           }
           cb(200, 'OK');
-        });  
+        });
       } else {
         return cb(new restify.InvalidContentError('Cannot delete resource'));
       }
@@ -158,7 +164,6 @@ function routeHandler(req, res, next){
   var apiCall = url.split('/').slice(1);
   var resourceName = apiCall[1];
   var resourceId = apiCall[2];
-  var that = this;
 
   if(method === 'patch' && !methods[method]){
     method = 'put';
@@ -166,25 +171,28 @@ function routeHandler(req, res, next){
 
   if(Object.keys(methods).indexOf(method) !== -1){
     if(!opts.db.models[resourceName]){
+      opts.logger.info('%s is not a model on this db instance', Object.keys(db.models));
       return res.send(new restify.MissingContentError(format('%s: not found', resourceName)));
     }
 
-
     if(!opts.allowAccess(req, method, resourceName, resourceId)){
+      opts.logger.info('Access has been denied for', req.url);
       return res.send(new restify.InvalidCredentialsError('Not authorized'));
     }
 
     methods[method].call(null, resourceName, resourceId, req.body, function(){
+      opts.logger.info('%s for %s/%s', method, resourceName, resourceId);
       return res.send.apply(res, Array.prototype.slice.call(arguments));
     });
 
   } else {
+    opts.logger.info('requested a resource that does not exist, %s %s', method, resourceName);
     return res.send(new restify.BadMethodError(format('%s does not exist for %s', method, resourceName)));
   }
 };
 
 /**
- * Create generic REST API 
+ * Create generic REST API
  * @method  restormify
  * @param   {object} opts options for restormify or a db instance
  * @param   {object} opts.db database instance
@@ -192,6 +200,7 @@ function routeHandler(req, res, next){
  * @param   {string} [opts.apiBase] base URL for API calls.
  * @param   {string} [opts.deletedColumn] what column to use to mark an item deleted. `false` to disable
  * @param   {function} [opts.allowAccess] a function given the resourceName, the reource ID, the method and the request obj. Return boolean if this request should be processed
+ * @param   {mixed} [opts.logger] specify a logger to use. `default` will use `server.log`, `false` will not log
  * @param   {object} [server] restify server instance
  * @param   {string} [base=''] base URL for API calls
  * @returns {object} server
@@ -208,6 +217,12 @@ module.exports = function(options, server, apiBase){
 
   if(!opts.deletedColumn){
     _actuallyDelete = true;
+  }
+
+  if(opts.logger === 'default'){
+    opts.logger = opts.server.log;
+  } else if(!opts.logger){
+    opts.logger = function(){};
   }
 
   var methods = ['get', 'put', 'post', 'patch', 'del'];

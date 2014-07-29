@@ -31,7 +31,7 @@ orm.connect('some/db/string', function(err, db){
     hiddenValue: {type: text, serverOnly: true}
   });
   db.sync('models', function(){
-    
+
     restormify({
       db: db,
       server: server,
@@ -46,7 +46,7 @@ orm.connect('some/db/string', function(err, db){
 
     restormify(database, server);
 
-    server.listen(3000);  
+    server.listen(3000);
   });
 });
 ```
@@ -78,6 +78,7 @@ The default options are:
 `options.apiBase`: what all requests to your API will be prefixed with.
 `options.deletedColumn`: the name of the column to flag a piece of content as deleted. If set to `false` it **will destroy data in your database**
 `options.allowAccess`: This method is called on each request. Returning `false` will return `401: Not authorized` to the client. It is passed in the restify `req` object, the name of the resource (and any ID), along with the HTTP method.
+`options.logger`: Specify a logger function to use. Defaults to `default` (which uses the logger available from restify object), `false` will disable logging.
 
 ## Testing
 

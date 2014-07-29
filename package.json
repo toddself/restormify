@@ -4,7 +4,7 @@
   "description": "An automatic API generator for node-orm2 and restify",
   "main": "index.js",
   "scripts": {
-    "test": "for spec in `ls test/*spec.js`; do mocha -R tap $spec; done;"
+    "test": "rm test/test-db; for spec in `ls test/*spec.js`; do mocha -R tap $spec; done;"
   },
   "repository": {
     "type": "git",
