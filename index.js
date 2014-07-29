@@ -3,13 +3,17 @@
 var restify = require('restify');
 var xtend = require('xtend');
 var format = require('util').format;
-var isEmpty = require('lodash.isempty');
+
+var createURLRegex = require('./lib/create-regex');
+
+var updateHandler = require('./handlers/update');
+var createHandler = require('./handlers/create');
+var getHandler = require('./handlers/get');
+var deleteHandler = require('./handlers/delete');
 
 var opts;
-var _actuallyDelete = false;
+var methods;
 var _apiBaseString = 'api';
-var logger;
-
 
 var defaults = {
   apiBase: createURLRegex(_apiBaseString),
@@ -17,153 +21,8 @@ var defaults = {
   allowAccess: function(){
     return true;
   },
-  logger: 'default'
-};
-
-/**
- * Enumerate through the response object to strip out all values that are marked
- * `serverOnly` as to not leak details to the client
- * @method  filterObj
- * @private
- * @param   {object} modelProps node-orm's model property
- * @param   {object} obj response from orm call
- * @returns {object} filtered object with all `serverOnly` fields removed
- */
-function filterObj(modelProps, obj){
-  var returnObj = {};
-  Object.keys(modelProps).forEach(function(key){
-    if(!modelProps[key].serverOnly){
-      returnObj[key] = obj[key];
-    }
-  });
-  return returnObj;
-}
-
-/**
- * Create a regular expression for routing requests to
- * @method  createURLRegex
- * @private
- * @param   {string} base string to exist
- * @returns {object} regular expression matching string
- */
-function createURLRegex(base){
-  var matcher = format('^/%s.*', base)
-  return new RegExp(matcher);
-}
-
-var methods = {
-  put: function(resourceName, resourceId, content, cb){
-    opts.db.models[resourceName].get(resourceId, function(err, resource){
-      if(err || !resource){
-        return cb(new restify.ResourceNotFoundError('Not found'));
-      }
-
-      if(!_actuallyDelete && opts.db.models[resourceName].properties.deleted && content.deleted){
-         return cb(new restify.InvalidContentError('PUT/PATCH may not delete content'));
-      }
-
-      resource.save(content, function(err, updatedResource){
-        if(err){
-          return cb(new restify.InternalError(err.message));
-        }
-        var filteredResource = filterObj(opts.db.models[resourceName].properties, updatedResource);
-        cb(200, filteredResource);
-      });
-    });
-  },
-
-  post: function(resourceName, resouceId, content, cb){
-    opts.db.models[resourceName].find(content, function(err, resource){
-      if(err){
-        return cb(new restify.InternalError(err.message));
-      }
-
-      if(resource.length > 0){
-        return cb(new restify.ConflictError(format('%s already exists', resourceName)));
-      }
-
-      var resource = new opts.db.models[resourceName](content);
-      resource.save(function(err){
-        if(err){
-          if(typeof err.value === 'undefined'){
-            err = new restify.ResourceNotFoundError(format('%s is required', err.property));
-          } else if (err.property) {
-            err = new restify.InvalidContentError(err.msg);
-          } else {
-            err = new restify.InternalError(err.message || err.msg);
-          }
-          return cb(err);
-        }
-        var filteredResource = filterObj(opts.db.models[resourceName].properties, resource);
-        cb(201, filteredResource);
-      });
-    });
-  },
-
-  get: function(resourceName, resourceId, content, cb){
-    var query = {};
-
-    if(_actuallyDelete){
-      query.deleted = false;
-    }
-
-    if(resourceId){
-      query.id = parseInt(resourceId, 10);
-      if(isNaN(query.id)){
-        return cb(new restify.ResourceNotFoundError('Not found'));
-      }
-    }
-
-    opts.db.models[resourceName].find(query, function(err, resource){
-      resource = Array.isArray(resource) ? resource : [resource];
-      var returnObject;
-      if(err){
-        return cb(new restify.InternalError(err.message));
-      }
-
-      var filteredResource = resource.map(function(r){
-        return filterObj(opts.db.models[resourceName].properties, r);
-      });
-
-      if(resourceId){
-        returnObject = filteredResource[0];
-        if(isEmpty(returnObject)){
-          return cb(new restify.ResourceNotFoundError('Not found'));
-        }
-      } else {
-        returnObject = filteredResource;
-      }
-
-      cb(200, returnObject);
-    })
-  },
-
-  delete: function(resourceName, resourceId, content, cb){
-    opts.db.models[resourceName].get(resourceId, function(err, resource){
-      if(err || !resource){
-        return cb(new restify.ResourceNotFoundError('Not found'));
-      }
-
-      if(_actuallyDelete){
-        resource.remove(function(err){
-          if(err){
-            return cb(new restify.InternalError(err.message));
-          }
-          cb(200, 'OK');
-        });
-      } else if(opts.db.models[resourceName].properties.deleted){
-        resource.deleted = true;
-        return resource.save(function(err){
-          if(err){
-            return cb(new restify.InternalError(err.message));
-          }
-          cb(200, 'OK');
-        });
-      } else {
-        return cb(new restify.InvalidContentError('Cannot delete resource'));
-      }
-    });
-  }
+  logger: 'default',
+  _actuallyDelete: false
 };
 
 /**
@@ -173,10 +32,9 @@ var methods = {
  * @private
  * @param   {object} req Restify request object
  * @param   {object} res Resitfy response object
- * @param   {Function} next Function to pass to next handler
  * @returns {object} undefined
  */
-function routeHandler(req, res, next){
+function routeHandler(req, res){
   var method = req.method.toLowerCase();
   var url = req.url;
   var apiCall = url.split('/').slice(1);
@@ -207,7 +65,7 @@ function routeHandler(req, res, next){
     opts.logger.info('requested a resource that does not exist, %s %s', method, resourceName);
     return res.send(new restify.BadMethodError(format('%s does not exist for %s', method, resourceName)));
   }
-};
+}
 
 /**
  * Create generic REST API
@@ -229,24 +87,40 @@ module.exports = function(options, server, apiBase){
       db: options,
       server: server,
       apiBase: createURLRegex(apiBase || _apiBaseString)
-    }
+    };
   }
   opts = xtend(defaults, options);
 
   if(!opts.deletedColumn){
-    _actuallyDelete = true;
+    opts._actuallyDelete = true;
   }
 
   if(opts.logger === 'default'){
     opts.logger = opts.server.log;
   } else if(!opts.logger){
-    opts.logger = function(){};
+    opts.logger = function(){
+      return {
+        child: function(){
+          return {
+            info: function(){},
+            error: function(){}
+          };
+        }
+      };
+    };
   }
 
-  var methods = ['get', 'put', 'post', 'patch', 'del'];
-  for(var i = 0; i < methods.length; i++){
-    opts.server[methods[i]](opts.apiBase, routeHandler);
+  var verbs = ['get', 'put', 'post', 'patch', 'del'];
+  for(var i = 0; i < verbs.length; i++){
+    opts.server[verbs[i]](opts.apiBase, routeHandler);
   }
+
+  methods = {
+    put: updateHandler(opts),
+    post: createHandler(opts),
+    get: getHandler(opts),
+    delete: deleteHandler(opts)
+  };
 
   return server;
 };

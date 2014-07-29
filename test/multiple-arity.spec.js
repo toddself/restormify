@@ -1,4 +1,4 @@
-/* jshint global: describe, before, beforeEach, afterEach, after, it */
+/* global describe, before, beforeEach, afterEach, after, it */
 'use strict';
 
 var fs = require('fs');
@@ -45,7 +45,6 @@ describe('multiple arity', function(){
 
     it('baz should return nothing on a get', function(done){
       client.get('/api/baz', function(err, req, res, obj){
-        err ? console.log(err) : 0;
         assert.ok(!err, 'no errors');
         assert.equal(res.statusCode, 200, 'received a 200');
         assert.equal(obj.length, 0, 'no data recieved');
@@ -158,7 +157,7 @@ describe('multiple arity', function(){
 
   after(function(done){
     db.close();
-    fs.unlink('test-db', function(err){
+    fs.unlink('test-db', function(){
       done();
     });
   });

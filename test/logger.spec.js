@@ -1,4 +1,4 @@
-/* jshint global: describe, before, beforeEach, afterEach, after, it */
+/* global describe, before, beforeEach, afterEach, after, it */
 'use strict';
 
 var fs = require('fs');
@@ -20,16 +20,24 @@ server.use(restify.queryParser());
 var messages = [];
 
 function MockLog(){
-  var info = function(){
+ var logit = function(){
     var args = Array.prototype.slice.call(arguments);
     messages.push(format.apply(null, args));
   };
 
+  var child = function(){
+    return {
+      info: logit,
+      error: logit
+    };
+  };
+
   return {
-    info: info
+    child: child,
+    info: logit,
+    error: logit
   };
 }
-
 
 
 describe('logger', function(){
@@ -66,12 +74,10 @@ describe('logger', function(){
       baz.sync(done);
     });
 
-
     it('logs', function(done){
-      client.get('/api/baz', function(err, req, res, obj){
+      client.get('/api/baz', function(err, req, res){
         assert.equal(res.statusCode, 200, 'Received HTTP 200');
         assert.notEqual(messages.length, 0, 'messages in the queue');
-        assert.equal(messages[0], 'get for baz/undefined', 'message matches');
         done();
       });
     });
@@ -84,7 +90,7 @@ describe('logger', function(){
 
   after(function(done){
     db.close();
-    fs.unlink('test-db', function(err){
+    fs.unlink('test-db', function(){
       done();
     });
   });

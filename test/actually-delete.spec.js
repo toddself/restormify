@@ -1,4 +1,4 @@
-/* jshint global: describe, before, beforeEach, afterEach, after, it */
+/* global describe, before, beforeEach, afterEach, after, it */
 'use strict';
 
 var fs = require('fs');
@@ -16,7 +16,7 @@ var baz;
 server.use(restify.bodyParser());
 server.use(restify.queryParser());
 
-describe('access denied', function(){
+describe('actually delete', function(){
   before(function(done){  
     orm.connect(dbProps, function(err, database){
       if(err){
@@ -85,7 +85,7 @@ describe('access denied', function(){
 
   after(function(done){
     db.close();
-    fs.unlink('test-db', function(err){
+    fs.unlink('test-db', function(){
       done();
     });
   });  

@@ -1,4 +1,4 @@
-/* jshint global: describe, before, beforeEach, afterEach, after, it */
+/* global describe, before, beforeEach, afterEach, after, it, xit */
 'use strict';
 
 var fs = require('fs');
@@ -51,7 +51,6 @@ describe('single arity', function(){
 
     it('baz should return nothing on a get', function(done){
       client.get('/api/baz', function(err, req, res, obj){
-        err ? console.log(err) : 0;
         assert.ok(!err, 'no errors');
         assert.equal(res.statusCode, 200, 'received a 200');
         assert.equal(obj.length, 0, 'no data recieved');
@@ -73,21 +72,21 @@ describe('single arity', function(){
     });
 
     it('returns a 404 for bad content', function(done){
-      client.get('/api/faaaa', function(err, req, res, obj){
+      client.get('/api/faaaa', function(err, req, res){
         assert.equal(res.statusCode, 404, 'missing content');
         done();
       });
     });
 
     it('returns a 404 for a bad id', function(done){
-      client.get('/api/baz/askjasd', function(err, req, res, obj){
+      client.get('/api/baz/askjasd', function(err, req, res){
         assert.equal(res.statusCode, 404, 'missing content');
         done();
       });
     });
 
     it('returns 404 for a missing id', function(done){
-      client.get('/api/baz/123', function(err, req, res, obj){
+      client.get('/api/baz/123', function(err, req, res){
         assert.equal(res.statusCode, 404, 'missing content');
         done();
       });
@@ -151,31 +150,6 @@ describe('single arity', function(){
       });
     });
 
-    it('rejecting a delete via PUT/PATCH', function(done){
-      var name = {name: 'foobar', email: 't@t.com'};
-      baz.create(name, function(err, bazName){
-        client.patch('/api/baz/'+bazName.id, {deleted: true}, function(err, req, res, obj){
-          assert.ok(err, 'got an error');
-          assert.equal(res.statusCode, 400, 'Received HTTP 400');
-          assert.equal(obj.message, 'PUT/PATCH may not delete content');
-          assert.equal(obj.code, 'InvalidContent');
-          done();
-        });
-      });
-    });
-
-    it('deleting an object', function(done){
-      var name = {name: 'foobar', email: 't@t.com'};
-      baz.create(name, function(err, bazName){
-        client.del('/api/baz/'+bazName.id, function(err, req, res, obj){
-          assert.ok(!err, 'no error');
-          assert.equal(res.statusCode, 200, 'Received HTTP 400');
-          assert.equal(obj, 'OK', 'received OK');
-          done();
-        });
-      });
-    });
-
     afterEach(function(done){
       server.close();
       db.drop(done);
@@ -184,7 +158,7 @@ describe('single arity', function(){
 
   after(function(done){
     db.close();
-    fs.unlink('test-db', function(err){
+    fs.unlink('test-db', function(){
       done();
     });
   });
