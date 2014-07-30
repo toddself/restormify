@@ -1,4 +1,5 @@
-/* global describe, before, beforeEach, afterEach, after, it */
+/* jshint unused: false */
+/* global describe, before, beforeEach, afterEach, after, it, xdescribe, xit */
 'use strict';
 
 var fs = require('fs');
@@ -7,7 +8,7 @@ var orm = require('orm');
 var assert = require('assert');
 
 var restormify = require('../');
-var dbProps = {database: 'test', host: 'test-db', protocol: 'sqlite'};
+var dbProps = {host: 'index', protocol: 'sqlite'};
 
 var server = restify.createServer();
 var client;
@@ -16,25 +17,31 @@ var baz;
 server.use(restify.bodyParser());
 server.use(restify.queryParser());
 
-describe('multiple arity', function(){
-  before(function(done){  
+describe('basic tests', function(){
+  before(function(done){
     orm.connect(dbProps, function(err, database){
       if(err){
         done(err);
       }
       db = database;
-      restormify(db, server);
-      baz = db.define('baz', {
-        name: String, 
-        email: String,
-        foo: {type: 'boolean', serverOnly: true}, 
-        deleted: {type: 'boolean', serverOnly: true}
+
+      restormify({
+        db: db,
+        server: server
+      }, function(){
+        baz = db.define('baz', {
+          name: String,
+          email: String,
+          foo: {type: 'boolean', serverOnly: true},
+          deleted: {type: 'boolean', serverOnly: true}
+        });
+        done();
       });
-      done();
     });
+
     client = restify.createJsonClient({
       url: 'http://localhost:1234/api'
-    });  
+    });
   });
 
   describe('api', function(){
@@ -61,11 +68,34 @@ describe('multiple arity', function(){
         assert.equal(obj.email, name.email, 'accepted data');
         assert.ok(!obj.foo, 'server only data not sent');
         assert.ok(!obj.deleted, 'server only data not sent');
+        assert.equal(obj._links.self.type, 'baz', 'has correct type');
+        assert.equal(obj._links.self.href, '/api/baz/'+obj.id, 'matches self href');
         done();
       });
     });
 
-    it('returns a created user', function(done){  
+    it('returns a 404 for bad content', function(done){
+      client.get('/api/faaaa', function(err, req, res){
+        assert.equal(res.statusCode, 404, 'missing content');
+        done();
+      });
+    });
+
+    it('returns a 404 for a bad id', function(done){
+      client.get('/api/baz/askjasd', function(err, req, res){
+        assert.equal(res.statusCode, 404, 'missing content');
+        done();
+      });
+    });
+
+    it('returns 404 for a missing id', function(done){
+      client.get('/api/baz/123', function(err, req, res){
+        assert.equal(res.statusCode, 404, 'missing content');
+        done();
+      });
+    });
+
+    it('returns a created user', function(done){
       var name = {name: 'foo bar'};
 
       baz.create(name, function(err, bazName){
@@ -74,6 +104,8 @@ describe('multiple arity', function(){
           assert.equal(res.statusCode, 200, 'received a 200');
           assert.equal(obj.name, bazName.name, 'returned correct user data');
           assert.equal(obj.id, bazName.id, 'returned correct id');
+          assert.equal(obj._links.self.type, 'baz', 'has correct type');
+          assert.equal(obj._links.self.href, '/api/baz/'+bazName.id, 'matches self href');
           done();
         });
       });
@@ -89,6 +121,8 @@ describe('multiple arity', function(){
           assert.ok(Array.isArray(obj), 'returned an array');
           assert.equal(obj[0].name, bazName.name, 'returned correct user data');
           assert.equal(obj[0].id, bazName.id, 'returned correct id');
+          assert.equal(obj[0]._links.self.type, 'baz', 'has correct type');
+          assert.equal(obj[0]._links.self.href, '/api/baz/'+bazName.id, 'matches self href');
           done();
         });
       });
@@ -104,6 +138,8 @@ describe('multiple arity', function(){
           assert.equal(res.statusCode, 200, 'received a 200');
           assert.equal(obj.name, 'baz wee', 'updated the user');
           assert.equal(obj.email, 't@t.com', 'updated the user');
+          assert.equal(obj._links.self.type, 'baz', 'has correct type');
+          assert.equal(obj._links.self.href, '/api/baz/'+bazName.id, 'matches self href');
           done();
         });
       });
@@ -118,31 +154,8 @@ describe('multiple arity', function(){
           assert.equal(res.statusCode, 200, 'received a 200');
           assert.equal(obj.name, 'baz wee', 'updated the user');
           assert.equal(obj.email, 't@t.com', 'did not update an unset prop');
-          done();
-        });
-      });
-    });
-
-    it('rejecting a delete via PUT/PATCH', function(done){
-      var name = {name: 'foobar', email: 't@t.com'};
-      baz.create(name, function(err, bazName){
-        client.patch('/api/baz/'+bazName.id, {deleted: true}, function(err, req, res, obj){
-          assert.ok(err, 'got an error');
-          assert.equal(res.statusCode, 400, 'Received HTTP 400');
-          assert.equal(obj.message, 'PUT/PATCH may not delete content');
-          assert.equal(obj.code, 'InvalidContent');
-          done();
-        });
-      });
-    });
-
-    it('deleting an object', function(done){
-      var name = {name: 'foobar', email: 't@t.com'};
-      baz.create(name, function(err, bazName){
-        client.del('/api/baz/'+bazName.id, function(err, req, res, obj){
-          assert.ok(!err, 'no error');
-          assert.equal(res.statusCode, 200, 'Received HTTP 400');
-          assert.equal(obj, 'OK', 'received OK');
+          assert.equal(obj._links.self.type, 'baz', 'has correct type');
+          assert.equal(obj._links.self.href, '/api/baz/'+bazName.id, 'matches self href');
           done();
         });
       });
@@ -154,10 +167,9 @@ describe('multiple arity', function(){
     });
   });
 
-
   after(function(done){
     db.close();
-    fs.unlink('test-db', function(){
+    fs.unlink(dbProps.host, function(){
       done();
     });
   });

@@ -1,4 +1,5 @@
-/* global describe, before, beforeEach, afterEach, after, it */
+/* jshint unused: false */
+/* global describe, before, beforeEach, afterEach, after, it, xdescribe, xit */
 'use strict';
 
 var fs = require('fs');
@@ -7,7 +8,7 @@ var orm = require('orm');
 var assert = require('assert');
 
 var restormify = require('../');
-var dbProps = {database: 'test', host: 'test-db', protocol: 'sqlite'};
+var dbProps = {host: 'access-denied', protocol: 'sqlite'};
 
 var server = restify.createServer();
 var client;
@@ -30,15 +31,15 @@ describe('access denied', function(){
         allowAccess: function(){
           return false;
         }
+      }, function(){
+        baz = db.define('baz', {
+          name: String, 
+          email: String,
+          foo: {type: 'boolean', serverOnly: true}, 
+          deleted: {type: 'boolean', serverOnly: true}
+        });
+        done();  
       });
-
-      baz = db.define('baz', {
-        name: String, 
-        email: String,
-        foo: {type: 'boolean', serverOnly: true}, 
-        deleted: {type: 'boolean', serverOnly: true}
-      });
-      done();
     });
 
     client = restify.createJsonClient({
@@ -140,7 +141,7 @@ describe('access denied', function(){
 
   after(function(done){
     db.close();
-    fs.unlink('test-db', function(){
+    fs.unlink(dbProps.host, function(){
       done();
     });
   });  

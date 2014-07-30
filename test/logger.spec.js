@@ -1,4 +1,5 @@
-/* global describe, before, beforeEach, afterEach, after, it */
+/* jshint unused: false */
+/* global describe, before, beforeEach, afterEach, after, it, xdescribe, xit */
 'use strict';
 
 var fs = require('fs');
@@ -8,7 +9,7 @@ var assert = require('assert');
 var format = require('util').format;
 
 var restormify = require('../');
-var dbProps = {database: 'test', host: 'test-db', protocol: 'sqlite'};
+var dbProps = {host: 'logger', protocol: 'sqlite'};
 
 var server = restify.createServer();
 var client;
@@ -52,15 +53,15 @@ describe('logger', function(){
         db: db,
         server: server,
         logger: new MockLog()
+      }, function(){
+        baz = db.define('baz', {
+          name: String,
+          email: String,
+          deleted: {type: 'boolean', serverOnly: true},
+          foo: {type: 'boolean', serverOnly: true}
+        });
+        done();
       });
-
-      baz = db.define('baz', {
-        name: String,
-        email: String,
-        deleted: {type: 'boolean', serverOnly: true},
-        foo: {type: 'boolean', serverOnly: true}
-      });
-      done();
     });
 
     client = restify.createJsonClient({
@@ -90,7 +91,7 @@ describe('logger', function(){
 
   after(function(done){
     db.close();
-    fs.unlink('test-db', function(){
+    fs.unlink(dbProps.host, function(){
       done();
     });
   });
