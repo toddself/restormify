@@ -2,6 +2,7 @@
 
 var restify = require('restify');
 var filterObj = require('../lib/filter-object');
+var appendLinks = require('../lib/append-links');
 
 module.exports = function(opts){
   var log = opts.logger.child({method: 'update'});
@@ -29,7 +30,7 @@ module.exports = function(opts){
         }
         var filteredResource = filterObj(opts.db.models[resourceName].properties, updatedResource);
         log.info('Updated %s/%s', resourceName, resourceId);
-        cb(200, filteredResource);
+        cb(200, appendLinks(filteredResource, resourceName, opts.apiPrefix));
       });
     });
   };

@@ -4,7 +4,8 @@
   "description": "An automatic API generator for node-orm2 and restify",
   "main": "index.js",
   "scripts": {
-    "test": "rm test/test-db; set -e; for spec in `ls test/*spec.js`; do echo \"testing $spec\"; mocha -R tap $spec; done;"
+    "test": "mocha --inline-diffs -R tap test/*spec.js",
+    "test-coverage": "istanbul cover _mocha -- -R tap test/*spec.js"
   },
   "repository": {
     "type": "git",
@@ -22,7 +23,10 @@
     "server",
     "server",
     "persistance",
-    "orm"
+    "orm",
+    "HAL",
+    "HATEOAS",
+    "hypertext application language"
   ],
   "author": "Todd Kennedy <todd@selfassembled.org>",
   "license": "MIT",
@@ -35,12 +39,14 @@
     "restify": "~2.X"
   },
   "devDependencies": {
+    "istanbul": "^0.3.0",
     "mocha": "~1.21.3",
     "orm": "~2.1.17",
     "restify": "~2.8.1",
     "sqlite3": "^2.2.4"
   },
   "dependencies": {
+    "async": "^0.9.0",
     "lodash.isempty": "^2.4.1",
     "xtend": "^3.0.0"
   }

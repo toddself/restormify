@@ -1,4 +1,5 @@
-/* global describe, before, beforeEach, afterEach, after, it */
+/* jshint unused: false */
+/* global describe, before, beforeEach, afterEach, after, it, xdescribe, xit */
 'use strict';
 
 var fs = require('fs');
@@ -7,7 +8,7 @@ var orm = require('orm');
 var assert = require('assert');
 
 var restormify = require('../');
-var dbProps = {database: 'test', host: 'test-db', protocol: 'sqlite'};
+var dbProps = {host: 'actually-delete', protocol: 'sqlite'};
 
 var server = restify.createServer();
 var client;
@@ -28,14 +29,14 @@ describe('actually delete', function(){
         db: db, 
         server: server,
         deletedColumn: false
+      }, function(){
+        baz = db.define('baz', {
+          name: String, 
+          email: String,
+          foo: {type: 'boolean', serverOnly: true}
+        });
+        done();  
       });
-
-      baz = db.define('baz', {
-        name: String, 
-        email: String,
-        foo: {type: 'boolean', serverOnly: true}
-      });
-      done();
     });
 
     client = restify.createJsonClient({
@@ -85,7 +86,7 @@ describe('actually delete', function(){
 
   after(function(done){
     db.close();
-    fs.unlink('test-db', function(){
+    fs.unlink(dbProps.host, function(){
       done();
     });
   });  

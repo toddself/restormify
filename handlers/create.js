@@ -3,6 +3,7 @@
 var restify = require('restify');
 var filterObj = require('../lib/filter-object');
 var format = require('util').format;
+var appendLinks = require('../lib/append-links');
 
 module.exports = function(opts){
   var log = opts.logger.child({method: 'post'});
@@ -35,7 +36,7 @@ module.exports = function(opts){
         }
         var filteredResource = filterObj(opts.db.models[resourceName].properties, resource);
         log.info('Successfully created %s with id %s', resourceName, filteredResource.id);
-        cb(201, filteredResource);
+        cb(201, appendLinks(filteredResource, resourceName, opts.apiPrefix));
       });
     });
   };

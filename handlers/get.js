@@ -3,6 +3,7 @@
 var restify = require('restify');
 var filterObj = require('../lib/filter-object');
 var isEmpty = require('lodash.isempty');
+var appendLinks = require('../lib/append-links');
 
 module.exports = function(opts){
   var log = opts.logger.child({method: 'get'});
@@ -30,7 +31,8 @@ module.exports = function(opts){
       }
 
       var filteredResource = resource.map(function(r){
-        return filterObj(opts.db.models[resourceName].properties, r);
+        var props = opts.db.models[resourceName].properties; 
+        return appendLinks(filterObj(props, r), resourceName, opts.apiPrefix);
       });
 
       if(resourceId){
@@ -42,6 +44,9 @@ module.exports = function(opts){
       } else {
         returnObject = filteredResource;
       }
+
+
+
       log.info('got %s/%s', resourceName, resourceId);
       cb(200, returnObject);
     });
