@@ -1,6 +1,6 @@
 {
   "name": "restormify",
-  "version": "0.2.1",
+  "version": "1.0.0",
   "description": "An automatic API generator for node-orm2 and restify",
   "main": "index.js",
   "scripts": {
