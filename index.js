@@ -128,12 +128,12 @@ module.exports = function(options, cb){
     cb = function(){};
   }
 
-  if(options.apiBase){
-    options.apiPrefix = opts.apiBase;
-    options.apiBase = createURLRegex(opts.apiPrefix);
-  }
-
   opts = xtend(defaults, options);
+
+  if(options.apiBase){
+    opts.apiPrefix = options.apiBase;
+    opts.apiBase = createURLRegex(opts.apiPrefix);
+  }
 
   if(!opts.deletedColumn){
     opts._actuallyDelete = true;
